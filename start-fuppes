@@ -1,0 +1,24 @@
+#!/bin/sh
+# fuppesの設定などをおくディレクトリ
+FUPPES_DIR=/var/lib/fuppes
+
+# --friendly-name <name> set friendly name
+FUPPES_NAME="Media Server"
+# --log-level [0-3] set log level (0-none, 1-normal, 2-extended, 3-debug)
+FUPPES_LOG_LEVEL="3"
+# --log-file <filename> set log file (default: none)
+FUPPES_LOG="/var/log/fuppes.log"
+# --config-file <filename> use alternate config file (default ~/.fuppes/fuppes.cfg)
+FUPPES_CONFIG="${FUPPES_DIR}/fuppes.cfg"
+# --database-file <filename> use alternate database file (default ~/.fuppes/fuppes.db)
+FUPPES_DB="${FUPPES_DIR}/fuppes.db"
+# --vfolder-config-file <filename> use alternate vfolder config file (default ~/.fuppes/vfolder.cfg)
+FUPPES_VFOLDER="${FUPPES_DIR}/vfolder.cfg"
+
+sudo -u fuppes -s /bin/sh -c \
+ /usr/bin/fuppes --friendly-name "${FUPPES_NAME}" \
+ --log-level "${FUPPES_LOG_LEVEL}" \
+ --log-file "${FUPPES_LOG}" \
+ --config-file "${FUPPES_CONFIG}" \
+ --database-file "${FUPPES_DB}" \
+ --vfolder-config-file "${FUPPES_VFOLDER}"
