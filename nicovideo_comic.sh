@@ -1,6 +1,6 @@
 #!/bin/sh
 # 2013/03/05に作成
-# ニコニコ静画のマンガをダウンロードできます
+# ニコニコ静画のマンガを指定して一括でダウンロードできます
 
 save_cookies='/tmp/cookies_nicovideo.jp.txt'
 
