@@ -7,8 +7,10 @@ save_cookies='/tmp/cookies_nicovideo.jp.txt'
 nicovideo_login(){
     printf 'nicovideo.jp mail       > ' >&2
     read nicovideo_mail
+    stty -echo
     printf 'nicovideo.jp password   > ' >&2
     read nicovideo_password
+    stty echo
     wget --secure-protocol=SSLv3 \
     --keep-session-cookies \
     --save-cookies="${save_cookies}" \

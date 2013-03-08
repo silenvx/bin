@@ -8,8 +8,10 @@ save_cookies='/tmp/cookies_pixiv.net.txt'
 pixiv_login(){
     printf 'pixiv.net id        > ' >&2
     read pixiv_mail
+    stty -echo
     printf 'pixiv.net password  > ' >&2
     read pixiv_password
+    stty echo
 
     wget --secure-protocol=SSLv3 \
     --keep-session-cookies \
