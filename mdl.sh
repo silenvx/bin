@@ -20,7 +20,7 @@ case `echo "${1}"|cut -d '/' -f 3` in
 # 複数表示される場合があるので必ず|head -1もつけること
     'www.youtube.com')
 # 動画を見るページか判定{{{
-        echo "${1#*//*/}"|grep -E '^watch\?(.*&)?v=[0-9a-zA-Z]+($|&).*$' >/dev/null 2>&1
+        echo "${1#*//*/}"|grep -E '^watch\?(.*&)?v=[0-9a-zA-Z-]+($|&).*$' >/dev/null 2>&1
         if [ "${?}" == '1' ];then
             echo "unsupport url: ${1}" >&2
             exit 1
