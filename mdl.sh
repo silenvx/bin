@@ -13,14 +13,14 @@ fi
 # }}}urlか判定
 
 case `echo "${1}"|cut -d '/' -f 3` in
-# youtube.com 2013/03/15 {{{
+# 2013/03/15 youtube.com{{{
 # 正直、youtube-dlを使ったほうが良い(よくメンテナンスされているので)
 # 複数のurlが表示されるので画質は |grep 'itag=数値' で選ぶ
 # その数値を調べるには |grep -o 'itag=[^&]*'で色々と表示される
 # 複数表示される場合があるので必ず|head -1もつけること
     'www.youtube.com')
 # 動画を見るページか判定{{{
-        echo "${1#*//*/}"|grep -E '^watch\?v=[0-9a-zA-Z]+$' >/dev/null 2>&1
+        echo "${1#*//*/}"|grep -E '^watch\?(.*&)?v=[0-9a-zA-Z]+($|&).*$' >/dev/null 2>&1
         if [ "${?}" == '1' ];then
             echo "unsupport url: ${1}" >&2
             exit 1
@@ -41,7 +41,7 @@ case `echo "${1}"|cut -d '/' -f 3` in
         done
         ;;
 # }}}youtube.com
-# xvideos.com 2012/12/18{{{
+# 2012/12/18 xvideos.com{{{
     'www.xvideos.com'|'www.xvideos.jp')
 # 動画を見るページか判定{{{
         echo "${1#*//*/}"|grep -E '^video[0-9]+/.*' >/dev/null 2>&1
@@ -53,7 +53,7 @@ case `echo "${1}"|cut -d '/' -f 3` in
         web_fetch "${1}"|grep -o 'flv_url=[^&]*'|sed -e 's/^flv_url=//'|nkf --url-input
         ;;
 # }}}xvideos
-# tokyo-porn-tube.com 2013/01/09{{{
+# 2013/01/09 tokyo-porn-tube.com{{{
     'www.tokyo-porn-tube.com')
 # 動画を見るページか判定{{{
         echo "${1#*//*/}"|grep -E '^video/[0-9]+/.*$' >/dev/null 2>&1
@@ -65,7 +65,7 @@ case `echo "${1}"|cut -d '/' -f 3` in
         web_fetch "http://www.tokyo-porn-tube.com/media/player/config.php?vkey=`echo "${1}"|grep -o '/video/[0-9]*'|grep -o '[0-9]*'`"|grep -o '<src>.*\.flv</src>'|sed -e 's|<src>||' -e 's|</src>||'
         ;;
 # }}}tokyo-porn-tube.com
-# asg.to 2013/03/13{{{
+# 2013/03/13 asg.to{{{
 # UraAgesage.site.jsを参考に書いた
     'asg.to')
 # 動画を見るページか判定{{{
