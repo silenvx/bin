@@ -3,7 +3,7 @@
 # 複数の画質があり、urlだけでは判別ができない場合に限りurlの下に詳細を >&2 で出力してます
 # 日付は書いた日
 # サイトは手当たりしだい追加していくので見ない奴はメンテナンスしないので注意
-# wget grep sed printf echo cut nkfなどで実装されてます
+# md5sum wget grep sed printf echo cut nkfなどで実装されてます
 web_fetch(){
     wget --quiet -O - "${@}"
 }
