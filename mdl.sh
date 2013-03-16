@@ -53,8 +53,8 @@ case `echo "${1}"|cut -d '/' -f 3` in
         web_fetch "${1}"|grep -o 'flv_url=[^&]*'|sed -e 's/^flv_url=//'|nkf --url-input
         ;;
 # }}}xvideos
-# 2013/01/09 tokyo-porn-tube.com{{{
-    'www.tokyo-porn-tube.com')
+# 2013/01/09 tokyo-porn-tube.com (2013/03/16 tokyo-tube){{{
+    'www.tokyo-porn-tube.com'|'www.tokyo-tube.com')
 # 動画を見るページか判定{{{
         echo "${1#*//*/}"|grep -E '^video/[0-9]+/.*$' >/dev/null 2>&1
         if [ "${?}" == '1' ];then
@@ -62,7 +62,7 @@ case `echo "${1}"|cut -d '/' -f 3` in
             exit 1
         fi
 # }}}動画を見るページか判定
-        web_fetch "http://www.tokyo-porn-tube.com/media/player/config.php?vkey=`echo "${1}"|grep -o '/video/[0-9]*'|grep -o '[0-9]*'`"|grep -o '<src>.*\.flv</src>'|sed -e 's|<src>||' -e 's|</src>||'
+        web_fetch "${1%%/video/*}/media/player/config.php?vkey=`echo "${1}"|grep -E -o '/video/[0-9]+'|sed -e 's|^/video/||'`"|grep -o '<src>.*\.flv</src>'|sed -e 's|<src>||' -e 's|</src>||'
         ;;
 # }}}tokyo-porn-tube.com
 # 2013/03/13 asg.to{{{
