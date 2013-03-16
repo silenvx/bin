@@ -1,5 +1,7 @@
 #!/bin/sh
 # 動画サイトの動画ファイルへの直接なリンクを表示するスクリプト
+# 日付は書いた日
+# 最初だけ、手当たりしだい追加していくので見ない奴はメンテナンスされないので注意
 web_fetch(){
     wget --quiet -O - "${@}"
 }
@@ -86,7 +88,7 @@ case `echo "${1}"|cut -d '/' -f 3` in
     'video.fc2.com')
 # seed値はswfdumpで抽出
 # 落とす時はginfo.phpにアクセスした時のuseragentと同じでないと弾かれるので
-# web_fetch関数に使ったダウンローダと再生プレイヤーのuseragentを合わせておくように
+# web_fetch関数に使ったダウンローダと動画プレイヤーのuseragentを合わせておくように
 # 動画を見るページか判定{{{
         echo "${1#*//*/}"|grep -E '^(../)?(a/)?content/[0-9]+[0-9a-zA-Z]+(&|$).*$' >/dev/null 2>&1
         if [ "${?}" == '1' ];then
@@ -102,6 +104,22 @@ case `echo "${1}"|cut -d '/' -f 3` in
         web_fetch "http://video.fc2.com/ginfo.php?mimi=${fc2_mimi}&v=${fc2_i}&upid=${fc2_i}"|sed -e 's/^filepath=//'|grep -E -o '^.*&mid=[^&]*'|sed -e 's/\&/?/g'
         ;;
 # }}}fc2.com
+# 2013/03/16 youporn.com{{{
+    'www.youporn.com')
+# 複数の画質があるので|head -1 などをして1つにしてから動画プレイヤーに渡してください
+# 動画を見るページか判定{{{
+        echo "${1#*//*/}"|grep -E '^watch/[0-9]+/.*$' >/dev/null 2>&1
+        if [ "${?}" == '1' ];then
+            echo "unsupport url: ${1}" >&2
+            exit 1
+        fi
+# }}}動画を見るページか判定
+        web_fetch "${1}"|\
+        sed -ne '/<ul class="downloadList">/,/<\/ul>/p'|\
+        grep -E -o '<a href="[^"]*'|\
+        sed -e 's/<a href="//g' -e 's/\&amp;/\&/g'
+        ;;
+# }}}youporn.com
     *)
         echo "unknown site: ${1}"
 esac
