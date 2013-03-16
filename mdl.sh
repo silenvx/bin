@@ -82,6 +82,26 @@ case `echo "${1}"|cut -d '/' -f 3` in
         web_fetch "http://asg.to/contentsPage.xml?mcd=${asg_mcd}&pt=${asg_pt}&st=${asg_st}"|grep '<movieurl>'|grep -E -o 'http://[^<]*'
         ;;
 # }}}asg.to
+# 2013/03/16 fc2.com{{{
+    'video.fc2.com')
+# seed値はswfdumpで抽出
+# 落とす時はginfo.phpにアクセスした時のuseragentと同じでないと弾かれるので
+# web_fetch関数に使ったダウンローダと再生プレイヤーのuseragentを合わせておくように
+# 動画を見るページか判定{{{
+        echo "${1#*//*/}"|grep -E '^(../)?(a/)?content/[0-9]+[0-9a-zA-Z]+(&|$).*$' >/dev/null 2>&1
+        if [ "${?}" == '1' ];then
+            echo "unsupport url: ${1}" >&2
+            exit 1
+        fi
+# }}}動画を見るページか判定
+        fc2_seed='gGddgPfeaf_gzyr'
+        fc2_part="`web_fetch "${1}"|\
+        grep -E -o '<param name="FlashVars"[^>]*'|grep -E -o 'value="[^"]*'|sed -e 's/value="//' -e 's/\&/\n/g'`"
+        fc2_i="`echo "${fc2_part}"|grep '^i='|sed 's/^i=//'`"
+        fc2_mimi="`printf "${fc2_i}_${fc2_seed}"|md5sum|grep -E -o '^[^ ]*'`"
+        web_fetch "http://video.fc2.com/ginfo.php?mimi=${fc2_mimi}&v=${fc2_i}&upid=${fc2_i}"|sed -e 's/^filepath=//'|grep -E -o '^.*&mid=[^&]*'|sed -e 's/\&/?/g'
+        ;;
+# }}}fc2.com
     *)
         echo "unknown site: ${1}"
 esac
