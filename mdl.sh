@@ -2,9 +2,17 @@
 # 動画サイトの動画ファイルへの直接なリンクを表示するスクリプト
 # 複数の画質があり、urlだけでは判別ができない場合に限りurlの下に詳細を >&2 で出力してます
 # 日付は書いた日
-# 最初だけ、手当たりしだい追加していくので見ない奴はメンテナンスされないので注意
+# サイトは手当たりしだい追加していくので見ない奴はメンテナンスしないので注意
+# wget grep sed printf echo cut nkfなどで実装されてます
 web_fetch(){
     wget --quiet -O - "${@}"
+}
+mdl_support(){
+    echo "${1#*//*/}"|grep -E "${2}" >/dev/null 2>&1
+    if [ "${?}" == '1' ];then
+        echo "unsupport url: ${1}" >&2
+        exit 1
+    fi
 }
 
 # urlか判定{{{
@@ -22,14 +30,7 @@ case `echo "${1}"|cut -d '/' -f 3` in
 # その数値を調べるには |grep -o 'itag=[^&]*'で色々と表示される
 # 複数表示される場合があるので必ず|head -1もつけること
     'www.youtube.com')
-# 動画を見るページか判定{{{
-        echo "${1#*//*/}"|grep -E '^watch\?(.*&)?v=[0-9a-zA-Z-]+($|&).*$' >/dev/null 2>&1
-        if [ "${?}" == '1' ];then
-            echo "unsupport url: ${1}" >&2
-            exit 1
-        fi
-
-# }}}動画を見るページか判定
+        mdl_support "${1}" '^watch\?(.*&)?v=[0-9a-zA-Z-]+($|&).*$'
         for youtube_tmp in `web_fetch "${1}"|grep -E -o '"url_encoded_fmt_stream_map": "[^"]*'|sed -e 's/^"url_encoded_fmt_stream_map": "//' -e 's/,/\n/g' |nkf --url-input`;do
             youtube_part="`echo "${youtube_tmp}"|\
             sed -e 's/\\\\u0026/\n/g'`"
@@ -46,38 +47,20 @@ case `echo "${1}"|cut -d '/' -f 3` in
 # }}}youtube.com
 # 2012/12/18 xvideos.com{{{
     'www.xvideos.com'|'www.xvideos.jp')
-# 動画を見るページか判定{{{
-        echo "${1#*//*/}"|grep -E '^video[0-9]+/.*' >/dev/null 2>&1
-        if [ "${?}" == '1' ];then
-            echo "unsupport url: ${1}" >&2
-            exit 1
-        fi
-# }}}動画を見るページか判定
+        mdl_support "${1}" '^video[0-9]+/.*'
         web_fetch "${1}"|grep -o 'flv_url=[^&]*'|sed -e 's/^flv_url=//'|nkf --url-input
         ;;
 # }}}xvideos
 # 2013/01/09 tokyo-porn-tube.com (2013/03/16 tokyo-tube){{{
     'www.tokyo-porn-tube.com'|'www.tokyo-tube.com')
-# 動画を見るページか判定{{{
-        echo "${1#*//*/}"|grep -E '^video/[0-9]+/.*$' >/dev/null 2>&1
-        if [ "${?}" == '1' ];then
-            echo "unsupport url: ${1}" >&2
-            exit 1
-        fi
-# }}}動画を見るページか判定
+        mdl_support "${1}" '^video/[0-9]+/.*$'
         web_fetch "${1%%/video/*}/media/player/config.php?vkey=`echo "${1}"|grep -E -o '/video/[0-9]+'|sed -e 's|^/video/||'`"|grep -o '<src>.*\.flv</src>'|sed -e 's|<src>||' -e 's|</src>||'
         ;;
 # }}}tokyo-porn-tube.com
 # 2013/03/13 asg.to{{{
 # UraAgesage.site.jsを参考に書いた
     'asg.to')
-# 動画を見るページか判定{{{
-        echo "${1#*//*/}"|grep -E '^contentsPage\.html\?mcd=[0-9a-zA-Z]+$' >/dev/null 2>&1
-        if [ "${?}" == '1' ];then
-            echo "unsupport url: ${1}" >&2
-            exit 1
-        fi
-# }}}動画を見るページか判定
+        mdl_support "${1}" '^contentsPage\.html\?mcd=[0-9a-zA-Z]+$'
         asg_seed='---===XERrr3nmsdf8874nca===---'
         asg_mcd="${1#*mcd=}"
         asg_pt="`web_fetch "${1}"|grep -E -o 'urauifla\("[^"]*&pt[^"]*'|grep -E -o '&pt[^&]*'|sed -e 's/&pt=//'`"
@@ -90,13 +73,7 @@ case `echo "${1}"|cut -d '/' -f 3` in
 # seed値はswfdumpで抽出
 # 落とす時はginfo.phpにアクセスした時のuseragentと同じでないと弾かれるので
 # web_fetch関数に使ったダウンローダと動画プレイヤーのuseragentを合わせておくように
-# 動画を見るページか判定{{{
-        echo "${1#*//*/}"|grep -E '^(../)?(a/)?content/[0-9]+[0-9a-zA-Z]+(&|$).*$' >/dev/null 2>&1
-        if [ "${?}" == '1' ];then
-            echo "unsupport url: ${1}" >&2
-            exit 1
-        fi
-# }}}動画を見るページか判定
+        mdl_support "${1}" '^(../)?(a/)?content/[0-9]+[0-9a-zA-Z]+(&|$).*$'
         fc2_seed='gGddgPfeaf_gzyr'
         fc2_part="`web_fetch "${1}"|\
         grep -E -o '<param name="FlashVars"[^>]*'|grep -E -o 'value="[^"]*'|sed -e 's/value="//' -e 's/\&/\n/g'`"
@@ -108,13 +85,7 @@ case `echo "${1}"|cut -d '/' -f 3` in
 # 2013/03/16 youporn.com{{{
     'www.youporn.com')
 # 複数の画質があるので|head -1 などをして1つにしてから動画プレイヤーに渡してください
-# 動画を見るページか判定{{{
-        echo "${1#*//*/}"|grep -E '^watch/[0-9]+/.*$' >/dev/null 2>&1
-        if [ "${?}" == '1' ];then
-            echo "unsupport url: ${1}" >&2
-            exit 1
-        fi
-# }}}動画を見るページか判定
+        mdl_support "${1}" '^watch/[0-9]+/.*$'
         web_fetch "${1}"|\
         sed -ne '/<ul class="downloadList">/,/<\/ul>/p'|\
         grep -E -o '<a href="[^"]*'|\
@@ -137,35 +108,22 @@ case `echo "${1}"|cut -d '/' -f 3` in
             nkf --url-input
 # }}}既にセレクト済みか判定
         else
-            # 動画を見るページか判定{{{
-            echo "${1#*//*/}"|grep -E '^[0-9]+$' >/dev/null 2>&1
-            if [ "${?}" == '1' ];then
-                echo "unsupport url: ${1}" >&2
-                exit 1
-            # }}}動画を見るページか判定
-            else
-                IFS=$'\n'
-                for himado_tmp in `web_fetch "${1}"|grep -E -o '<select id=select_othersource.*</select>'|grep -E -o '<option value="[^<]*'|sed -e 's/^<option value="//g'`;do
-                    web_fetch "http://himado.in/${himado_tmp%%\"*}"|\
-                    grep -E -o 'movie_url = "http[^"]*'|\
-                    sed -s 's/^movie_url.*"//'|\
-                    nkf --url-input
-                    echo -e "${himado_tmp#*>}\n" >&2
-                done
-            fi
+            mdl_support "${1}" '^[0-9]+$'
+            IFS=$'\n'
+            for himado_tmp in `web_fetch "${1}"|grep -E -o '<select id=select_othersource.*</select>'|grep -E -o '<option value="[^<]*'|sed -e 's/^<option value="//g'`;do
+                web_fetch "http://himado.in/${himado_tmp%%\"*}"|\
+                grep -E -o 'movie_url = "http[^"]*'|\
+                sed -s 's/^movie_url.*"//'|\
+                nkf --url-input
+                echo -e "${himado_tmp#*>}\n" >&2
+            done
         fi
         ;;
 # }}}himado.in
 # 2013/03/16 momovideo.net{{{
 # urlの下にセレクトメニューに書いてある文字列が表示されます
     'momovideo.net')
-# 動画を見るページか判定{{{
-        echo "${1#*//*/}"|grep -E '^\?watchId=[0-9]+$' >/dev/null 2>&1
-        if [ "${?}" == '1' ];then
-            echo "unsupport url: ${1}" >&2
-            exit 1
-        fi
-# }}}動画を見るページか判定
+        mdl_support "${1}" '^\?watchId=[0-9]+$'
         momovideo_source="`web_fetch "${1}"`"
         momovideo_default="`echo "${momovideo_source}"|\
         grep -E -o "mediaUrl=http[^']*"|\
@@ -181,6 +139,17 @@ case `echo "${1}"|cut -d '/' -f 3` in
         done
         ;;
 # }}}momovideo.net
+# 2013/03/16 dailymotion.com{{{
+# 画質が複数あります
+    'www.dailymotion.com')
+        mdl_support "${1}" '^video/[0-9a-zA-Z_-]+$'
+        web_fetch "${1}"|\
+        grep -E -o 'sequence":"[^"]*'|\
+        nkf --url-input|\
+        grep -E -o '"(ld|sd|hq|hd720)URL":"[^"]*'|\
+        sed -e 's/^"[^"]*URL":"//g' -e 's|\\/|/|g'
+        ;;
+# }}}dailymotion.com
     *)
         echo "unknown site: ${1}"
 esac
