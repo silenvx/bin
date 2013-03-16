@@ -1,5 +1,6 @@
 #!/bin/sh
 # 動画サイトの動画ファイルへの直接なリンクを表示するスクリプト
+# 複数の画質があり、urlだけでは判別ができない場合に限りurlの下に詳細を >&2 で出力してます
 # 日付は書いた日
 # 最初だけ、手当たりしだい追加していくので見ない奴はメンテナンスされないので注意
 web_fetch(){
@@ -120,6 +121,41 @@ case `echo "${1}"|cut -d '/' -f 3` in
         sed -e 's/<a href="//g' -e 's/\&amp;/\&/g'
         ;;
 # }}}youporn.com
+# 2013/03/16 himado.in{{{
+    'himado.in')
+# urlの下にセレクトメニューに書いてある文字列が表示されます
+# 既にセレクト済みのurlを渡すと表示されるurlは1つだけです
+# 複数表示された場合は直接urlをコピペするか
+# 2>&1|grep -B 1 'セレクトメニューに書いてある文字列'|head -1
+# こんな感じのコマンドを後ろにつけて実行すればいいです
+# 既にセレクト済みか判定{{{
+        echo "${1#*//*/}"|grep -E '^\?id=[0-9]+&(sid|def)=[0-9]+$' >/dev/null 2>&1
+        if [ "${?}" == '0' ];then
+            web_fetch "${1}"|\
+            grep -E -o 'movie_url = "http[^"]*'|\
+            sed -s 's/^movie_url.*"//'|\
+            nkf --url-input
+# }}}既にセレクト済みか判定
+        else
+            # 動画を見るページか判定{{{
+            echo "${1#*//*/}"|grep -E '^[0-9]+$' >/dev/null 2>&1
+            if [ "${?}" == '1' ];then
+                echo "unsupport url: ${1}" >&2
+                exit 1
+            # }}}動画を見るページか判定
+            else
+                IFS=$'\n'
+                for himado_tmp in `web_fetch "${1}"|grep -E -o '<select id=select_othersource.*</select>'|grep -E -o '<option value="[^<]*'|sed -e 's/^<option value="//g'`;do
+                    web_fetch "http://himado.in/${himado_tmp%%\"*}"|\
+                    grep -E -o 'movie_url = "http[^"]*'|\
+                    sed -s 's/^movie_url.*"//'|\
+                    nkf --url-input
+                    echo -e "${himado_tmp#*>}\n" >&2
+                done
+            fi
+        fi
+        ;;
+# }}}himado.in
     *)
         echo "unknown site: ${1}"
 esac
