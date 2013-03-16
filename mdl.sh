@@ -124,7 +124,7 @@ case `echo "${1}"|cut -d '/' -f 3` in
 # 2013/03/16 himado.in{{{
     'himado.in')
 # urlの下にセレクトメニューに書いてある文字列が表示されます
-# 既にセレクト済みのurlを渡すと表示されるurlは1つだけです
+# 既にセレクト済みのurlを渡すと表示されるurlは1つだけでメニューの文字列は表示されません
 # 複数表示された場合は直接urlをコピペするか
 # 2>&1|grep -B 1 'セレクトメニューに書いてある文字列'|head -1
 # こんな感じのコマンドを後ろにつけて実行すればいいです
@@ -156,6 +156,31 @@ case `echo "${1}"|cut -d '/' -f 3` in
         fi
         ;;
 # }}}himado.in
+# 2013/03/16 momovideo.net{{{
+# urlの下にセレクトメニューに書いてある文字列が表示されます
+    'momovideo.net')
+# 動画を見るページか判定{{{
+        echo "${1#*//*/}"|grep -E '^\?watchId=[0-9]+$' >/dev/null 2>&1
+        if [ "${?}" == '1' ];then
+            echo "unsupport url: ${1}" >&2
+            exit 1
+        fi
+# }}}動画を見るページか判定
+        momovideo_source="`web_fetch "${1}"`"
+        momovideo_default="`echo "${momovideo_source}"|\
+        grep -E -o "mediaUrl=http[^']*"|\
+        sed -e 's/^mediaUrl=//'`"
+        momovideo_sub="`echo "${momovideo_source}"|\
+        grep -E '<select name="media_url".*</select>'|\
+        grep -E -o '<option value="[^<]*'|\
+        sed -e 's/^<option value="//g'`"
+        IFS=$'\n'
+        for momovideo_tmp in `echo "${momovideo_default}${momovideo_sub}"`;do
+            echo "${momovideo_tmp%%\"*}"
+            echo -e "${momovideo_tmp#*>}\n" >&2
+        done
+        ;;
+# }}}momovideo.net
     *)
         echo "unknown site: ${1}"
 esac
