@@ -3,7 +3,7 @@
 # 複数の画質があり、urlだけでは判別ができない場合に限りurlの下に詳細を >&2 で出力してます
 # 日付は書いた日
 # サイトは手当たりしだい追加していくので見ない奴はメンテナンスしないので注意
-# md5sum wget grep sed printf echo cut nkfなどで実装されてます
+# md5sum wget grep sed printf echo cut nkf stringsなどで実装されてます
 web_fetch(){
     wget --quiet -O - "${@}"
 }
@@ -182,6 +182,50 @@ case `echo "${1}"|cut -d '/' -f 3` in
         done
         ;;
 # }}}ted.com
+# 2013/03/17 ustream.tv{{{
+    'www.ustream.tv')
+# リダイレクト先が動画がへのパス
+# /recorded/[0-9]+${{{
+        echo "${1#*//*/}"|grep -E '^recorded/[0-9]+$' >/dev/null 2>&1
+        if [ "${?}" == '0' ];then
+            echo "http://tcdn.ustream.tv/video/`echo "${1}"|grep -E -o '/[0-9]+$'|sed -e 's|^/||'`"
+        else
+# }}}/recorded/[0-9]+$
+# 同じurlがあるのは仕様です
+# mplayerで再生する時は
+# rtmpdump -v -q -o - -s 'http://www.ustream.tv/flash/viewer.swf' -r "`mdl.sh 'ustreamのurl'`" |mplayer -
+# こんな感じで再生しましょう
+# たまに再生できない動画があるのは仕様です
+# /channel/.+${{{
+            mdl_support "${1}" '^channel/.+$'
+            ustream_cid="`web_fetch "${1}"|\
+            grep -E -o 'cid=[0-9]+'|\
+            head -1|\
+            sed -e 's/^cid=//'`"
+            ustream_rtmp="`web_fetch "http://cdngw.ustream.tv/Viewer/getStream/1/${ustream_cid}.amf"|\
+            strings|\
+            grep -E '^(akamai|stream_live|.+rtmp:\/\/).+$'`"
+            ustream_flag='0'
+            IFS=$'\n'
+            for ustream_tmp in ${ustream_rtmp};do
+                echo "${ustream_tmp}"|\
+                grep -E '^.*rtmp:\/\/.+$' >/dev/null 2>&1
+                if [ "${?}" == 0 ];then
+                    ustream_url="${ustream_tmp#*rtmp:}"
+                else
+                    ustream_path="${ustream_tmp}"
+                fi
+                if [ "${ustream_flag}" == '1' ];then
+                    echo "rtmp:${ustream_url}/${ustream_path}"
+                    ustream_flag='0'
+                    continue
+                fi
+                ustream_flag='1'
+            done
+# }}}/channel/.+$
+        fi
+        ;;
+# }}}ustream.tv
     *)
         echo "unknown site: ${1}"
 esac
