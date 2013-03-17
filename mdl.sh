@@ -150,6 +150,38 @@ case `echo "${1}"|cut -d '/' -f 3` in
         sed -e 's/^"[^"]*URL":"//g' -e 's|\\/|/|g'
         ;;
 # }}}dailymotion.com
+# 2013/03/17 ted.com{{{
+# rtmpのurlに書かれている1500kなどはビットレートです
+# たぶん、これによって画質も異なる
+# 全部を確かめたわけではないけども
+#   1500k   1280x720
+#    950k    854x480
+#    600k    640x360
+#    450k    512x288
+#    320k    512x288
+#    180k    512x288
+#     64k    398x224
+# となっていると思う。出力する処理を書くのは面倒だったので書いていません
+    'www.ted.com')
+        mdl_support "${1}" '^talks/[0-9a-zA-Z_]+\.html$'
+        ted_source="`web_fetch "${1}"`"
+# httpのurl
+        echo "${ted_source}"|\
+        grep -E -o '<a id="no-flash-video-download" href="[^"]*'|\
+        sed -e 's/^<a id="no-flash-video-download" href="//'
+# rtmpのurl
+        ted_flashvars="`echo "${ted_source}"|\
+        grep -E -o '"flashVars":{[^}]*'|\
+        grep -E -o '"playlist":"[^"]*'|\
+        nkf --url-input|\
+        sed -e 's|\\\\/|/|g'`"
+        ted_host="`echo "${ted_flashvars}"|\
+        grep -E -o '"streamer":"[^"]*'|sed -e 's/^"streamer":"//'`"
+        for ted_path in `echo "${ted_flashvars}"|grep -E -o '"mp4:[^"]*'|sed -e 's/^"mp4://'`;do
+            echo "${ted_host}/${ted_path}"
+        done
+        ;;
+# }}}ted.com
     *)
         echo "unknown site: ${1}"
 esac
