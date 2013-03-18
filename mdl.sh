@@ -193,7 +193,7 @@ case `echo "${1}"|cut -d '/' -f 3` in
 # }}}/recorded/[0-9]+$
 # 同じurlがあるのは仕様です
 # mplayerで再生する時は
-# rtmpdump -v -q -o - -s 'http://www.ustream.tv/flash/viewer.swf' -r "`mdl.sh 'ustreamのurl'`" |mplayer -
+# rtmpdump -v -q -o - -s 'http://www.ustream.tv/flash/viewer.swf' -r "`mdl.sh 'ustreamのurl'|head -1`" |mplayer -
 # こんな感じで再生しましょう
 # たまに再生できない動画があるのは仕様です
 # /channel/.+${{{
