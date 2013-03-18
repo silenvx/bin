@@ -30,7 +30,7 @@ case `echo "${1}"|cut -d '/' -f 3` in
 # その数値を調べるには |grep -o 'itag=[^&]*'で色々と表示される
 # 複数表示される場合があるので必ず|head -1もつけること
     'www.youtube.com')
-        mdl_support "${1}" '^watch\?(.*&)?v=[0-9a-zA-Z-]+($|&).*$'
+        mdl_support "${1}" '^watch\?(.*&)?v=[0-9a-zA-Z-_]+($|&).*$'
         for youtube_tmp in `web_fetch "${1}"|grep -E -o '"url_encoded_fmt_stream_map": "[^"]*'|sed -e 's/^"url_encoded_fmt_stream_map": "//' -e 's/,/\n/g' |nkf --url-input`;do
             youtube_part="`echo "${youtube_tmp}"|\
             sed -e 's/\\\\u0026/\n/g'`"
