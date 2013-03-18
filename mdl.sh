@@ -258,13 +258,14 @@ case `echo "${1}"|cut -d '/' -f 3` in
 # 2013/03/18 *.nicovideo.jp{{{
     'live.nicovideo.jp'|'www.nicovideo.jp')
 # ログインが必要なサービスなので最初にidとpwを要求します
-# www.nicovideo.jp{{{
+
 # 動画のダウンロードにcookieが必要なので例えばmplayerで再生するなら
 # mplayer -cookies -cookies-file ${nicovideo_cookies}" "`mdl.sh 'ニコニコ動画のurl'`"
 # だいたいこんな感じで再生が可能です
 # そういうわけで標準出力をする時はcookieの分も出力しています。なので
 # eval mplayer "`mdl.sh ニコニコ動画のurl`"
 # 再生する時はこんな感じになります
+# www.nicovideo.jp{{{
         nicovideo_cookies='/tmp/mdl_cookies_nicovideo.txt'
         echo "${1#*//}"|grep -E '^www\..+' >/dev/null 2>&1
         if [ "${?}" == '0' ];then
