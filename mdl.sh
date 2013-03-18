@@ -188,7 +188,7 @@ case `echo "${1}"|cut -d '/' -f 3` in
 # /recorded/[0-9]+${{{
         echo "${1#*//*/}"|grep -E '^recorded/[0-9]+$' >/dev/null 2>&1
         if [ "${?}" == '0' ];then
-            echo "http://tcdn.ustream.tv/video/`echo "${1}"|grep -E -o '/[0-9]+$'|sed -e 's|^/||'`"
+            echo "http://tcdn.ustream.tv/video`echo "${1}"|grep -E -o '/[0-9]+$'`"
         else
 # }}}/recorded/[0-9]+$
 # 同じurlがあるのは仕様です
