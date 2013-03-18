@@ -7,12 +7,29 @@
 web_fetch(){
     wget --quiet -O - "${@}"
 }
+
 mdl_support(){
     echo "${1#*//*/}"|grep -E "${2}" >/dev/null 2>&1
     if [ "${?}" == '1' ];then
         echo "unsupport url: ${1}" >&2
         exit 1
     fi
+}
+
+nicovideo_login(){
+    printf 'nicovideo.jp mail       > ' >&2
+    read nicovideo_mail
+    stty -echo
+    printf 'nicovideo.jp password   > ' >&2
+    read nicovideo_password
+    stty echo
+    echo >&2
+    wget --quiet --secure-protocol=SSLv3 \
+    --keep-session-cookies \
+    --save-cookies="${3}" \
+    --post-data "next_url=${1#*nicovideo.jp}&mail=${nicovideo_mail}&password=${nicovideo_password}" \
+    "https://secure.nicovideo.jp/secure/login?site=${2}" \
+    -O -
 }
 
 # urlか判定{{{
@@ -189,22 +206,25 @@ case `echo "${1}"|cut -d '/' -f 3` in
         echo "${1#*//*/}"|grep -E '^recorded/[0-9]+$' >/dev/null 2>&1
         if [ "${?}" == '0' ];then
             echo "http://tcdn.ustream.tv/video`echo "${1}"|grep -E -o '/[0-9]+$'`"
-        else
 # }}}/recorded/[0-9]+$
 # 同じurlがあるのは仕様です
-# mplayerで再生する時は
-# rtmpdump -v -q -o - -s 'http://www.ustream.tv/flash/viewer.swf' -r "`mdl.sh 'ustreamのurl'|head -1`" |mplayer -
-# こんな感じで再生しましょう
+# rtmpdumpに渡す形式で出力されます
+# mplayerで再生するならば
+# eval rtmpdump -v -q -o - "`mdl.sh 'ustreamのurl'|head -1`" |mplayer -
+# こんな感じで使用できます
 # たまに再生できない動画があるのは仕様です
 # /channel/.+${{{
+        else
             mdl_support "${1}" '^channel/.+$'
             ustream_cid="`web_fetch "${1}"|\
             grep -E -o 'cid=[0-9]+'|\
             head -1|\
             sed -e 's/^cid=//'`"
-            ustream_rtmp="`web_fetch "http://cdngw.ustream.tv/Viewer/getStream/1/${ustream_cid}.amf"|\
-            strings|\
-            grep -E '^(akamai|stream_live|.+rtmp:\/\/).+$'`"
+            ustream_amf="`web_fetch "http://cdngw.ustream.tv/Viewer/getStream/1/${ustream_cid}.amf"|\
+            strings`"
+# cdn{{{
+            ustream_rtmp="`echo "${ustream_amf}"|\
+            grep -E '^(akamai|stream_live|.+rtmp:\/\/.*(fplive.net|edgefcs.net)/).+$'`"
             ustream_flag='0'
             IFS=$'\n'
             for ustream_tmp in ${ustream_rtmp};do
@@ -216,16 +236,108 @@ case `echo "${1}"|cut -d '/' -f 3` in
                     ustream_path="${ustream_tmp}"
                 fi
                 if [ "${ustream_flag}" == '1' ];then
-                    echo "rtmp:${ustream_url}/${ustream_path}"
+                    echo "-s 'http://www.ustream.tv/flash/viewer.swf' -r 'rtmp:${ustream_url}/${ustream_path}'"
                     ustream_flag='0'
                     continue
                 fi
                 ustream_flag='1'
             done
+# }}}cdn
+# FIXME:fmsを使う放送が見当たらなかったので途中
+# fms{{{
+            ustream_rtmp="`echo "${ustream_amf}"|\
+            grep -E -o 'rtmp://.+/ustreamVideo/[0-9]+'`"
+            if [ -n "${ustream_rtmp}" ];then
+                echo "-s 'http://www.ustream.tv/flash/viewer.swf' -r '${ustream_rtmp}' -a '${ustream_rtmp##+/}' -y 'streams/live'"
+            fi
+# }}}fms
 # }}}/channel/.+$
         fi
         ;;
 # }}}ustream.tv
+# 2013/03/18 *.nicovideo.jp{{{
+    'live.nicovideo.jp'|'www.nicovideo.jp')
+# ログインが必要なサービスなので最初にidとpwを要求します
+# www.nicovideo.jp{{{
+# 動画のダウンロードにcookieが必要なので例えばmplayerで再生するなら
+# mplayer -cookies -cookies-file ${nicovideo_cookies}" "`mdl.sh 'ニコニコ動画のurl'`"
+# だいたいこんな感じで再生が可能です
+# そういうわけで標準出力をする時はcookieの分も出力しています。なので
+# eval mplayer "`mdl.sh ニコニコ動画のurl`"
+# 再生する時はこんな感じになります
+        nicovideo_cookies='/tmp/mdl_cookies_nicovideo.txt'
+        echo "${1#*//}"|grep -E '^www\..+' >/dev/null 2>&1
+        if [ "${?}" == '0' ];then
+            mdl_support "${1}" '^watch/.+$'
+            nicovideo_login "${1}" 'niconico' "${nicovideo_cookies}"> /dev/null
+            nicovideo_url="`wget --quiet --load-cookies="${nicovideo_cookies}" -O - "http://flapi.nicovideo.jp/api/getflv?v=${1#*/watch/}"|\
+            grep -E -o 'url=[^&]+'|\
+            sed -e 's/^url=//'|\
+            nkf --url-input`"
+            echo "-cookies -cookies-file '${nicovideo_cookies}' '${nicovideo_url}'"
+# }}}www.nicovideo.jp
+# rtmpdumpに渡す形式で出力されます
+# eval rtmpdump "`mdl.sh 'ニコニコ生放送のURL'|head -1`" rtmpdumpの使いたいパラメータ
+# といった感じで使用できます
+# live.nicovideo.jp{{{
+        else
+            mdl_support "${1}" '^watch/.+$'
+            nicovideo_source="`nicovideo_login "${1}" 'nicolive' ''|\
+            nkf --url-input|\
+            grep 'getplayerstatus'`"
+            nicovideo_provider="`echo "${nicovideo_source}"|\
+            grep -E -o '<provider_type>[^<]+'|sed -e 's/<provider_type>//'`"
+            case "${nicovideo_provider}" in
+# 何もいじっていないrtmpdumpでも動作可能
+# urlにはpremiumやmobileやdefault用など複数の種類があるので種類はurlの下に >&2 で表示しています
+# そういうわけでその情報を利用して選択するならば
+# mdl.sh 'ニコニコ生放送のURL' 2>&1|grep -B 1 '^premium'|head -1
+# このような感じで絞れますが簡易的なログイン画面もgrepに持っていかれるので注意
+# 公式生放送{{{
+            'official')
+                nicovideo_list="`echo "${nicovideo_source}"|\
+                grep -E -o '<contents id="main"[^<]+'|sed -e 's/^<contents[^>]+>//'|\
+                sed -e 's/^.*>case://' -e 's/,/\n/g'|\
+                nkf --url-input|\
+                sed -e 's|,|/|g'`"
+                for nicovideo_tmp in ${nicovideo_list};do
+                    nicovideo_url="`echo "${nicovideo_tmp}"|\
+                    grep -E -o 'rtmp://.+$'`"
+                    nicovideo_url="${nicovideo_url}?$(echo "${nicovideo_source}"|grep -E -o "<stream name=\"${nicovideo_url##*/}\">[^<]+"|sed -E -e 's/^<[^>]+>//' -e 's/\&amp\;/\&/g')"
+                    echo "-r '${nicovideo_url}' -C 'S:${nicovideo_url##*/}'"
+                    echo "${nicovideo_tmp}"|\
+                    grep -E -o '^[^:]+:[^:]+:' >&2
+                    echo >&2
+                done
+                ;;
+# }}}公式生放送
+# -Nオプションが使える(ニコニコ生放送に対応した)rtmpdumpでないと使用不可
+# linux版は
+# https://github.com/taonico/rtmpdump-nico-live
+# これを参考にpatchを書けば動きます
+# ユーザーもしくはチャンネル{{{
+            'community'|'channel')
+                nicovideo_n="`echo "${nicovideo_source}"|\
+                grep -E -o '<contents id="main"[^<]+'|\
+                sed -E -e 's/.+>rtmp://'`"
+                nicovideo_url="`echo "${nicovideo_source}"|\
+                grep -E -o '<url[^<]+'|\
+                sed -E -e 's/.+>//'`"
+                nicovideo_ticket="`echo "${nicovideo_source}"|\
+                grep -E -o '<ticket[^<]+'|\
+                sed -E -e 's/.+>//'`"
+                echo "-r '${nicovideo_url}' -C 'S:${nicovideo_ticket}' -N '${nicovideo_n}'"
+                ;;
+# }}}ユーザーもしくはチャンネル
+            *)
+                echo "unsupport provider type:${nicovideo_provider} url:${1}" >&2
+                exit 1
+                ;;
+            esac
+# }}}live.nicovideo.jp
+        fi
+        ;;
+# }}}*.nicovideo.jp
     *)
         echo "unknown site: ${1}"
 esac
