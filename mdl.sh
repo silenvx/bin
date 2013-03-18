@@ -243,12 +243,11 @@ case `echo "${1}"|cut -d '/' -f 3` in
                 ustream_flag='1'
             done
 # }}}cdn
-# FIXME:fmsを使う放送が見当たらなかったので途中
 # fms{{{
             ustream_rtmp="`echo "${ustream_amf}"|\
             grep -E -o 'rtmp://.+/ustreamVideo/[0-9]+'`"
             if [ -n "${ustream_rtmp}" ];then
-                echo "-s 'http://www.ustream.tv/flash/viewer.swf' -r '${ustream_rtmp}' -a '${ustream_rtmp##+/}' -y 'streams/live'"
+                echo "-s 'http://www.ustream.tv/flash/viewer.swf' -r '${ustream_rtmp}' -a 'ustreamVideo/${ustream_rtmp##*/}' -y 'streams/live'"
             fi
 # }}}fms
 # }}}/channel/.+$
