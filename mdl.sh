@@ -257,15 +257,14 @@ case `echo "${1}"|cut -d '/' -f 3` in
 # 2013/03/18 *.nicovideo.jp{{{
     'live.nicovideo.jp'|'www.nicovideo.jp')
 # ログインが必要なサービスなので最初にidとpwを要求します
-
+        nicovideo_cookies='/tmp/mdl_cookies_nicovideo.txt'
+# www.nicovideo.jp{{{
 # 動画のダウンロードにcookieが必要なので例えばmplayerで再生するなら
 # mplayer -cookies -cookies-file ${nicovideo_cookies}" "`mdl.sh 'ニコニコ動画のurl'`"
 # だいたいこんな感じで再生が可能です
 # そういうわけで標準出力をする時はcookieの分も出力しています。なので
 # eval mplayer "`mdl.sh ニコニコ動画のurl`"
 # 再生する時はこんな感じになります
-# www.nicovideo.jp{{{
-        nicovideo_cookies='/tmp/mdl_cookies_nicovideo.txt'
         echo "${1#*//}"|grep -E '^www\..+' >/dev/null 2>&1
         if [ "${?}" == '0' ];then
             mdl_support "${1}" '^watch/.+$'
@@ -276,10 +275,10 @@ case `echo "${1}"|cut -d '/' -f 3` in
             nkf --url-input`"
             echo "-cookies -cookies-file '${nicovideo_cookies}' '${nicovideo_url}'"
 # }}}www.nicovideo.jp
+# live.nicovideo.jp{{{
 # rtmpdumpに渡す形式で出力されます
 # eval rtmpdump "`mdl.sh 'ニコニコ生放送のURL'|head -1`" rtmpdumpの使いたいパラメータ
 # といった感じで使用できます
-# live.nicovideo.jp{{{
         else
             mdl_support "${1}" '^watch/.+$'
             nicovideo_source="`nicovideo_login "${1}" 'nicolive' ''|\
@@ -288,44 +287,52 @@ case `echo "${1}"|cut -d '/' -f 3` in
             nicovideo_provider="`echo "${nicovideo_source}"|\
             grep -E -o '<provider_type>[^<]+'|sed -e 's/<provider_type>//'`"
             case "${nicovideo_provider}" in
+# 公式生放送{{{
 # 何もいじっていないrtmpdumpでも動作可能
 # urlにはpremiumやmobileやdefault用など複数の種類があるので種類はurlの下に >&2 で表示しています
 # そういうわけでその情報を利用して選択するならば
 # mdl.sh 'ニコニコ生放送のURL' 2>&1|grep -B 1 '^premium'|head -1
 # このような感じで絞れますが簡易的なログイン画面もgrepに持っていかれるので注意
-# 公式生放送{{{
             'official')
-                nicovideo_list="`echo "${nicovideo_source}"|\
-                grep -E -o '<contents id="main"[^<]+'|sed -e 's/^<contents[^>]+>//'`"
-                echo "${nicovideo_list}"|\
-                grep -E '^.*>case:' > /dev/null 2>&1
+                echo "${1#*//*/}"|grep -E '^watch/lv.+$' >/dev/null 2>&1
                 if [ "${?}" == '0' ];then
-                    nicovideo_list="`echo "${nicovideo_list}"|\
-                    sed -e 's/^.*>case://' -e 's/,/\n/g'|\
-                    nkf --url-input|\
-                    sed -e 's|,|/|g'`"
+                    nicovideo_list="`echo "${nicovideo_source}"|\
+                    grep -E -o '<contents id="main"[^<]+'|sed -e 's/^<contents[^>]+>//'`"
+                    echo "${nicovideo_list}"|\
+                    grep -E '^.*>case:' > /dev/null 2>&1
+                    if [ "${?}" == '0' ];then
+                        nicovideo_list="`echo "${nicovideo_list}"|\
+                        sed -e 's/^.*>case://' -e 's/,/\n/g'|\
+                        nkf --url-input|\
+                        sed -e 's|,|/|g'`"
+                    else
+                        nicovideo_list="`echo "${nicovideo_list}"|\
+                        sed -e 's/^.*>//'|\
+                        sed -e 's|,|/|g'`"
+                    fi
+                    IFS=$'\n'
+                    for nicovideo_tmp in ${nicovideo_list};do
+                        nicovideo_url="`echo "${nicovideo_tmp}"|\
+                        grep -E -o 'rtmp://.+$'`"
+                        nicovideo_url="${nicovideo_url}?$(echo "${nicovideo_source}"|grep -E -o "<stream name=\"${nicovideo_url##*/}\">[^<]+"|sed -E -e 's/^<[^>]+>//' -e 's/\&amp\;/\&/g')"
+                        echo "-r '${nicovideo_url}' -C 'S:${nicovideo_url##*/}'"
+                        echo "${nicovideo_tmp}"|\
+                        grep -E -o '^[^:]+:[^:]+:' >&2
+                        echo >&2
+                    done
                 else
-                    nicovideo_list="`echo "${nicovideo_list}"|\
-                    sed -e 's/^.*>//'|\
-                    sed -e 's|,|/|g'`"
+# この条件に当てはまるのはnsenなど
+# 気が向いたら書く
+                    echo "unsupport live: ${1}"
+                    exit 0
                 fi
-                IFS=$'\n'
-                for nicovideo_tmp in ${nicovideo_list};do
-                    nicovideo_url="`echo "${nicovideo_tmp}"|\
-                    grep -E -o 'rtmp://.+$'`"
-                    nicovideo_url="${nicovideo_url}?$(echo "${nicovideo_source}"|grep -E -o "<stream name=\"${nicovideo_url##*/}\">[^<]+"|sed -E -e 's/^<[^>]+>//' -e 's/\&amp\;/\&/g')"
-                    echo "-r '${nicovideo_url}' -C 'S:${nicovideo_url##*/}'"
-                    echo "${nicovideo_tmp}"|\
-                    grep -E -o '^[^:]+:[^:]+:' >&2
-                    echo >&2
-                done
-                ;;
+            ;;
 # }}}公式生放送
+# ユーザーもしくはチャンネル{{{
 # -Nオプションが使える(ニコニコ生放送に対応した)rtmpdumpでないと使用不可
 # linux版は
 # https://github.com/taonico/rtmpdump-nico-live
 # これを参考にpatchを書けば動きます
-# ユーザーもしくはチャンネル{{{
             'community'|'channel')
                 nicovideo_n="`echo "${nicovideo_source}"|\
                 grep -E -o '<contents id="main"[^<]+'|\
