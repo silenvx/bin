@@ -296,10 +296,20 @@ case `echo "${1}"|cut -d '/' -f 3` in
 # 公式生放送{{{
             'official')
                 nicovideo_list="`echo "${nicovideo_source}"|\
-                grep -E -o '<contents id="main"[^<]+'|sed -e 's/^<contents[^>]+>//'|\
-                sed -e 's/^.*>case://' -e 's/,/\n/g'|\
-                nkf --url-input|\
-                sed -e 's|,|/|g'`"
+                grep -E -o '<contents id="main"[^<]+'|sed -e 's/^<contents[^>]+>//'`"
+                echo "${nicovideo_list}"|\
+                grep -E '^.*>case:' > /dev/null 2>&1
+                if [ "${?}" == '0' ];then
+                    nicovideo_list="`echo "${nicovideo_list}"|\
+                    sed -e 's/^.*>case://' -e 's/,/\n/g'|\
+                    nkf --url-input|\
+                    sed -e 's|,|/|g'`"
+                else
+                    nicovideo_list="`echo "${nicovideo_list}"|\
+                    sed -e 's/^.*>//'|\
+                    sed -e 's|,|/|g'`"
+                fi
+                IFS=$'\n'
                 for nicovideo_tmp in ${nicovideo_list};do
                     nicovideo_url="`echo "${nicovideo_tmp}"|\
                     grep -E -o 'rtmp://.+$'`"
