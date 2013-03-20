@@ -334,16 +334,32 @@ case `echo "${1}"|cut -d '/' -f 3` in
 # https://github.com/taonico/rtmpdump-nico-live
 # これを参考にpatchを書けば動きます
             'community'|'channel')
-                nicovideo_n="`echo "${nicovideo_source}"|\
-                grep -E -o '<contents id="main"[^<]+'|\
-                sed -E -e 's/.+>rtmp://'`"
-                nicovideo_url="`echo "${nicovideo_source}"|\
-                grep -E -o '<url[^<]+'|\
-                sed -E -e 's/.+>//'`"
-                nicovideo_ticket="`echo "${nicovideo_source}"|\
-                grep -E -o '<ticket[^<]+'|\
-                sed -E -e 's/.+>//'`"
-                echo "-r '${nicovideo_url}' -C 'S:${nicovideo_ticket}' -N '${nicovideo_n}'"
+                echo "${nicovideo_source}"|grep -E '<que ?[^>]*>' >/dev/null 2>&1
+                if [ "${?}" == '0' ];then
+## FIXME:タイムシフトの場合 (よくわからないので未実装)
+                    nicovideo_ticket="`echo "${nicovideo_source}"|\
+                    grep -E -o '<ticket[^<]+'|\
+                    sed -E -e 's/.+>//'`"
+                    nicovideo_list="`echo "${nicovideo_source}"|\
+                    grep -E -o '<que [^/]*/publish[^<]*'|\
+                    grep -E -o 'rtmp://.*'|\
+                    sed -e 's|,|/|g'`"
+                    for nicovideo_rtmp in ${nicovideo_list};do
+                        echo "-r '${nicovideo_rtmp}' -C 'S:${nicovideo_ticket}'"
+                    done
+                else
+# 通常の生放送
+                    nicovideo_n="`echo "${nicovideo_source}"|\
+                    grep -E -o '<contents id="main"[^<]+'|\
+                    sed -E -e 's/.+>rtmp://'`"
+                    nicovideo_url="`echo "${nicovideo_source}"|\
+                    grep -E -o '<url[^<]+'|\
+                    sed -E -e 's/.+>//'`"
+                    nicovideo_ticket="`echo "${nicovideo_source}"|\
+                    grep -E -o '<ticket[^<]+'|\
+                    sed -E -e 's/.+>//'`"
+                    echo "-r '${nicovideo_url}' -C 'S:${nicovideo_ticket}' -N '${nicovideo_n}'"
+                fi
                 ;;
 # }}}ユーザーもしくはチャンネル
             *)
@@ -355,7 +371,30 @@ case `echo "${1}"|cut -d '/' -f 3` in
         fi
         ;;
 # }}}*.nicovideo.jp
+# 2013/03/21 justin.tv and twitch.tv{{{
+# mplayerで再生するには
+# eval rtmpdump -v -q -o - "`mdl.sh justin.tvのURL`"|mplayer-
+# こんな感じです
+    'www.twitch.tv'|*'.justin.tv')
+        justin_source="`web_fetch "http://usher.justin.tv/find/${1##*/}.xml?type=any"`"
+        justin_rtmp_list="`echo "${justin_source}"|grep -E -o '<connect>[^<]+'|sed -e 's/^<connect>//'`"
+        justin_token_list="`echo "${justin_source}"|grep -E -o '<token>[^<]+'|sed -e 's/^<token>//'`"
+        justin_play_list="`echo "${justin_source}"|grep -E -o '<play>[^<]+'|sed -e 's/^<play>//'`"
+        justin_i='1'
+        justin_rtmp="`echo "${justin_rtmp_list}"|sed -n "${justin_i}p"`"
+        justin_token="`echo "${justin_token_list}"|sed -n "${justin_i}p"`"
+        justin_play="`echo "${justin_play_list}"|sed -n "${justin_i}p"`"
+        while [ -n "${justin_rtmp}" ] ;do
+            echo "-r '${justin_rtmp}/${justin_play}' -j '${justin_token}' -s 'http://www-cdn.jtvnw.net/widgets/live_site_player.swf'"
+            justin_i="`expr "${justin_i}" + 1`"
+            justin_rtmp="`echo "${justin_rtmp_list}"|sed -n "${justin_i}p"`"
+            justin_token="`echo "${justin_token_list}"|sed -n "${justin_i}p"`"
+            justin_play="`echo "${justin_play_list}"|sed -n "${justin_i}p"`"
+        done
+        ;;
+# }}}justin.tv and twitch.tv
     *)
         echo "unknown site: ${1}"
+        ;;
 esac
 # vim:set fdm=marker:
