@@ -387,6 +387,73 @@ get_justin(){
     done
 }
 # }}}justin.tv and twitch.tv
+# 2013/03/21 redtube.com {{{
+get_redtube(){
+    mdl_support "${1}" '^[0-9]+$'
+    web_fetch "${1}"|\
+    grep -E -o "<source src='[^']+"|sed -E -e "s/^[^']+'//"
+}
+# }}}redtube.com
+# 2013/03/21 radiko.jp{{{
+# 視聴できる全てのラジオが出力されるので
+# mdl.sh 'http://radiko.jp'|grep MBS
+# このように絞って使用します
+# mplayerで聴きたい場合は
+# eval rtmpdump -q -v -o - "`mdl.sh 'http://radiko.jp'|grep MBS`"|mplayer -
+# こんな感じです
+get_radiko(){
+    local radiko_player='http://radiko.jp/player/swf/player_3.0.0.01.swf'
+    local radiko_swf='/tmp/mdl_radiko_player.swf'
+    local radiko_jpg='/tmp/mdl_radiko_player.jpg'
+    wget --quiet -O "${radiko_swf}" "${radiko_player}"
+    swfextract -b 14 "${radiko_swf}" -o "${radiko_jpg}"
+    local radiko_auth="`wget --quiet -O - \
+    --header="pragma: no-cache" \
+    --header="X-Radiko-App: pc_1" \
+    --header="X-Radiko-App-Version: 2.0.1" \
+    --header="X-Radiko-User: test-stream" \
+    --header="X-Radiko-Device: pc" \
+    --post-data='\r\n' \
+    --no-check-certificate \
+    --save-headers \
+    'https://radiko.jp/v2/api/auth1_fms'|\
+    sed -e 's/\r//g'`"
+    local radiko_token="`echo "${radiko_auth}"|\
+    grep -E -o 'X-RADIKO-AUTHTOKEN=.+'|\
+    sed -E -e 's/^[^=]+=//'`"
+    local radiko_offset="`echo "${radiko_auth}"|\
+    grep -E -o 'X-Radiko-KeyOffset=.+'|\
+    sed -E -e 's/^[^=]+=//'`"
+    local radiko_length="`echo "${radiko_auth}"|\
+    grep -E -o 'X-Radiko-KeyLength=.+'|\
+    sed -E -e 's/^[^=]+=//'`"
+    local radiko_key="`dd if="${radiko_jpg}" bs=1 skip="${radiko_offset}" count="${radiko_length}" 2>/dev/null|base64`"
+    radiko_area="`wget --quiet -O - \
+    --header="pragma: no-cache" \
+    --header="X-Radiko-App: pc_1" \
+    --header="X-Radiko-App-Version: 2.0.1" \
+    --header="X-Radiko-User: test-stream" \
+    --header="X-Radiko-Device: pc" \
+    --header="X-Radiko-Authtoken: ${radiko_token}" \
+    --header="X-Radiko-Partialkey: ${radiko_key}" \
+    --post-data='\r\n' \
+    --no-check-certificate \
+    'https://radiko.jp/v2/api/auth2_fms'|\
+    sed -e 's/\r//g'|\
+    grep ','`"
+    local radiko_id="`web_fetch "http://radiko.jp/v2/station/list/${radiko_area%%,*}.xml"|\
+    grep -E -o '<id>[^<]+'|sed -e 's/^<id>//'`"
+# この方法でrtmpeプロトコルのurlを取得するが、固定なのでわざわざ取得しない
+#    for radiko_tmp in ${radiko_id};do
+#        web_fetch "http://radiko.jp/v2/station/stream/${radiko_tmp}.xml"|\
+#        grep -E -o 'rtmpe://[^<]+'|head -n 1
+#    done
+    for radiko_tmp in ${radiko_id};do
+        echo "-r 'rtmpe://w-radiko.smartstream.ne.jp' -a '${radiko_tmp}/_definst_' -y 'simul-stream.stream' -C 'S:' -C 'S:' -C 'S:' -C 'S:${radiko_token}'"
+    done
+    rm "${radiko_swf}" "${radiko_jpg}"
+}
+# }}}radiko.jp
 # }}}get_*
 # }}}関数群
 # メインルーチン{{{
@@ -438,8 +505,14 @@ case `echo "${1}"|cut -d '/' -f 3` in
     'www.twitch.tv'|*'.justin.tv')
         get_justin "${1}"
         ;;
+    'www.redtube.com')
+        get_redtube "${1}"
+        ;;
+    'radiko.jp')
+        get_radiko
+        ;;
     *)
-        echo "unknown site: ${1}"
+        echo "unknown site: ${1}" >&2
         ;;
 esac
 # }}}サイトの場合分け
