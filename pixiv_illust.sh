@@ -6,13 +6,19 @@
 save_cookies='/tmp/cookies_pixiv.net.txt'
 
 pixiv_login(){
-    printf 'pixiv.net id        > ' >&2
-    read pixiv_mail
-    stty -echo
-    printf 'pixiv.net password  > ' >&2
-    read pixiv_password
-    stty echo
-
+    pixiv_auth="${HOME}/.login_account/pixiv.net"
+    if [ -f "${pixiv_auth}" ];then
+        pixiv_mail="`sed -n '1p' "${pixiv_auth}"`"
+        pixiv_password="`sed -n '2p' "${pixiv_auth}"`"
+    fi
+    if [ -z "${pixiv_mail}" -o -z "${pixiv_password}" ];then
+        printf 'pixiv.net id        > ' >&2
+        read pixiv_mail
+        stty -echo
+        printf 'pixiv.net password  > ' >&2
+        read pixiv_password
+        stty echo
+    fi
     wget --secure-protocol=SSLv3 \
     --keep-session-cookies \
     --save-cookies="${save_cookies}" \
@@ -39,11 +45,14 @@ if [ "${?}" == '1' ];then
 fi
 
 pixiv_source="`pixiv_login "${pixiv_url}"`"
-pixiv_user="`echo "${pixiv_source}"|grep -E -o '<h1 class="user">[^<]*<'|sed -e 's/^.*>//' -e 's/<.*$//'`"
+pixiv_name="`echo "${pixiv_source}"|grep -E -o '<h1 class="user">[^<]*<'|sed -e 's/^.*>//' -e 's/<.*$//'`"
 pixiv_id="`echo "${pixiv_url}"|grep -E -o '[0-9]*'`"
 pixiv_list="`echo "${pixiv_source}"|grep 'image-item'|sed -e 's|</li>|\n|g'|grep 'image-item'`"
+#pixiv_user="`echo "${pixiv_source}"|grep -E -o '<img src="http[^"]+'|grep 'img[0-9]*/profile/'|head -n 1|sed -E -e 's|^<img.+img[0-9]*/profile/||' -e 's|/.+$||'`"
+pixiv_user="`echo "${pixiv_source}"|grep -E -o '<img src="http[^"]+'|grep -E -o 'http://[^"]*.pixiv.net/img[0-9]*/img/.+/.+'|head -n 1|cut -d '/' -f 6`"
 mkdir "[${pixiv_user}] (pixiv.net_${pixiv_id})"
 cd "[${pixiv_user}] (pixiv.net_${pixiv_id})"
+echo "${pixiv_name}" > 'author.txt'
 IFS=$'\n'
 pixiv_index='1'
 while [ -n "${pixiv_list}" ];do

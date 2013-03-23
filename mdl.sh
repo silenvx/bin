@@ -43,7 +43,12 @@ get_youtube(){
 # 複数のurlが表示されるので画質は |grep 'itag=数値' で選ぶ
 # その数値を調べるには |grep -o 'itag=[^&]*'で色々と表示される
 # 複数表示される場合があるので必ず|head -1もつけること
-    mdl_support "${1}" '^watch\?(.*&)?v=[0-9a-zA-Z-_]+($|&).*$'
+    echo "${1}"|cut -d '/' -f 3|grep 'youtu.be' >/dev/null 2>&1
+    if [ "${?}" == '0' ];then
+        mdl_support "${1}" '^[0-9a-zA-Z-_]+$'
+    else
+        mdl_support "${1}" '^watch\?(.*&)?v=[0-9a-zA-Z-_]+($|&).*$'
+    fi
     for youtube_tmp in `web_fetch "${1}"|grep -E -o '"url_encoded_fmt_stream_map": "[^"]*'|sed -e 's/^"url_encoded_fmt_stream_map": "//' -e 's/,/\n/g' |nkf --url-input`;do
         local youtube_part="`echo "${youtube_tmp}"|\
         sed -e 's/\\\\u0026/\n/g'`"
@@ -454,6 +459,16 @@ get_radiko(){
     rm "${radiko_swf}" "${radiko_jpg}"
 }
 # }}}radiko.jp
+# 2013/03/21 hibiki-radio.jp{{{
+get_hibiki(){
+    mdl_support "${1}" '^description/.+$'
+    local hibiki_aspx="`web_fetch "${1}"|\
+    grep 'WMVDisplay.aspx'|\
+    grep -E -o 'http://[^"]+'`"
+    web_fetch "${hibiki_aspx}"|\
+    grep -E -o 'mms://[^"]+'
+}
+# }}}hibiki-radio.jp
 # }}}get_*
 # }}}関数群
 # メインルーチン{{{
@@ -466,10 +481,10 @@ fi
 # }}}urlか判定
 # サイトの場合分け{{{
 case `echo "${1}"|cut -d '/' -f 3` in
-    'www.youtube.com')
+    'www.youtube.com'|'youtu.be')
         get_youtube "${1}"
         ;;
-    'www.xvideos.com'|'www.xvideos.jp')
+    *'.xvideos.com'|'www.xvideos.jp')
         get_xvideos "${1}"
         ;;
     'www.tokyo-porn-tube.com'|'www.tokyo-tube.com')
@@ -510,6 +525,9 @@ case `echo "${1}"|cut -d '/' -f 3` in
         ;;
     'radiko.jp')
         get_radiko
+        ;;
+    'hibiki-radio.jp')
+        get_hibiki "${1}"
         ;;
     *)
         echo "unknown site: ${1}" >&2
