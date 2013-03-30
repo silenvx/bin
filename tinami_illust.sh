@@ -48,14 +48,11 @@ if [ "${?}" == '1' ];then
     fi
 fi
 # }}}urlの補正
-
 tinami_login
-
 # 保存ディレクトリの生成と移動{{{
 mkdir "tinami.com_${tinami_url##*=}"
 cd "tinami.com_${tinami_url##*=}"
 # }}}保存ディレクトリの生成と移動
-
 tinami_index='0'
 tinami_list="`tinami_fetch -O - "${tinami_url}&keyword=&search=&genrekey=&period=&offset=${tinami_index}"|\
 grep -E -o '<a href="/view/[^"]+'|\
@@ -69,6 +66,8 @@ echo "${tinami_index}"
         for tinami_type in `echo "${tinami_source}"|grep -E -o '<img src="/img/job/view/[^.]+'|sed -e 's|^<img src="/img/job/view/||g'`;do
             case "${tinami_type}" in
                 'il')
+# TODO: 古い画像だと大きいサイズの画像へのリンクがあるページに飛べないので
+#       tinami_img変数の最後のところで無理やり元に戻っても対応してる
                     tinami_csrf="`echo "${tinami_source}"|\
                     grep -E -o '<input type="hidden" name="ethna_csrf" value="[^"]+'|\
                     sed -e 's/^<input type="hidden" name="ethna_csrf" value="//'`"
@@ -76,10 +75,12 @@ echo "${tinami_index}"
                     --referer "http://www.tinami.com/view/${tinami_id}" \
                     "http://www.tinami.com/view/${tinami_id}"|\
                     grep -E -o '<img src="[^"]+'|\
-                    sed -e 's/^<img src="//'`"
+                    sed -e 's/^<img src="//'|\
+                    grep 'http://img.tinami.com/illust'`"
                     wget --referer "http://www.tinami.com/view/${tinami_id}" "${tinami_img}"
                     ;;
                 'ma')
+# TODO:大きいサイズへのリンクが見当たらないので直接wget
                     wget --referer "http://www.tinami.com/view/${tinami_id}" `echo "${tinami_source}"|grep -E -o 'class="nv_body"><img src="[^"]+'|sed -e 's/^class="nv_body"><img src="//g'`
                     ;;
                 'ori'|'fan')
@@ -92,7 +93,6 @@ echo "${tinami_index}"
         done
     done
 # }}}1ページ分を全て取得
-
 # 次のページがあるか判定{{{
     tinami_index="`expr "${tinami_index}" + 20`"
     tinami_list="`tinami_fetch -O - "${tinami_url}&keyword=&search=&genrekey=&period=&offset=${tinami_index}"|\
