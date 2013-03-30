@@ -19,7 +19,7 @@ pixiv_login(){
         read pixiv_password
         stty echo
     fi
-    wget --secure-protocol=SSLv3 \
+    wget \
     --keep-session-cookies \
     --save-cookies="${save_cookies}" \
     --post-data "mode=login&return_to=${1}&pixiv_id=${pixiv_mail}&pass=${pixiv_password}" \

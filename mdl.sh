@@ -21,13 +21,20 @@ mdl_support(){
 # }}}サポートしているURLか判定する関数
 # ニコニコにログインする関数{{{
 nicovideo_login(){
-    printf 'nicovideo.jp mail       > ' >&2
-    read nicovideo_mail
-    stty -echo
-    printf 'nicovideo.jp password   > ' >&2
-    read nicovideo_password
-    stty echo
-    echo >&2
+    nicovideo_auth="${HOME}/.login_account/nicovideo.jp"
+    if [ -f "${nicovideo_auth}" ];then
+        nicovideo_mail="`sed -n '1p' "${nicovideo_auth}"`"
+        nicovideo_password="`sed -n '2p' "${nicovideo_auth}"`"
+    fi
+    if [ -z "${nicovideo_mail}" -o -z "${nicovideo_password}" ];then
+        printf 'nicovideo.jp mail       > ' >&2
+        read nicovideo_mail
+        stty -echo
+        printf 'nicovideo.jp password   > ' >&2
+        read nicovideo_password
+        stty echo
+        echo >&2
+    fi
     wget --quiet --secure-protocol=SSLv3 \
     --keep-session-cookies \
     --save-cookies="${3}" \
@@ -469,6 +476,44 @@ get_hibiki(){
     grep -E -o 'mms://[^"]+'
 }
 # }}}hibiki-radio.jp
+# 2013/03/26 nosub.tv{{{
+get_nosub(){
+    mdl_support "${1}" '^watch/[0-9]+\.html$'
+    local nosub_i=0
+    IFS=$'\n'
+    for nosub_info in `web_fetch "${1}"|grep -E -o 'addVideo\([^;]+'`;do
+        local nosub_url="`echo "${nosub_info}"|\
+        cut -d ',' -f 3|\
+        sed -e 's/"//g'`"
+        local nosub_video="`echo "${nosub_url}"|\
+        grep -E -o 'vid=[^&]+'|\
+        sed -e 's/^vid=//'`"
+        local nosub_type="`echo "${nosub_url}"|\
+        grep -E -o 'type=[^&]+'|\
+        sed -e 's/^type=//'`"
+        case "${nosub_type}" in
+            'video')
+                echo "${nosub_url}"|\
+                grep -E -o 'file=[^&]+'|\
+                sed 's/^file=//'
+                ;;
+            'fc2')
+                "${0}" "http://video.fc2.com/content/${nosub_video}"
+                ;;
+            'sina')
+                for nosub_list in `web_fetch "http://v.iask.com/v_play.php?vid=${nosub_video}"|grep -E -o 'http://[^]]+'`;do
+                    echo -n "${nosub_list} "
+                done
+                echo
+                ;;
+            *)
+                echo "unsupport type: ${nosub_url} " >&2
+                ;;
+        esac
+        echo "${nosub_info}"|cut -d ',' -f 4 >&2
+    done
+}
+# }}}nosub.tv
 # }}}get_*
 # }}}関数群
 # メインルーチン{{{
@@ -481,7 +526,7 @@ fi
 # }}}urlか判定
 # サイトの場合分け{{{
 case `echo "${1}"|cut -d '/' -f 3` in
-    'www.youtube.com'|'youtu.be')
+    *'.youtube.com'|'youtu.be')
         get_youtube "${1}"
         ;;
     *'.xvideos.com'|'www.xvideos.jp')
@@ -528,6 +573,9 @@ case `echo "${1}"|cut -d '/' -f 3` in
         ;;
     'hibiki-radio.jp')
         get_hibiki "${1}"
+        ;;
+    'www.nosub.tv')
+        get_nosub "${1}"
         ;;
     *)
         echo "unknown site: ${1}" >&2
