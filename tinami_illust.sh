@@ -1,7 +1,5 @@
 #!/bin/sh
-# 2013/03/08に作成
-# pixivのユーザーを指定して一括でダウンロードできます
-# R-18画像をダウンロードするか否かはpixiv側の設定に依存します
+# 2013/03/31に作成
 
 save_cookies='/tmp/cookies_tinami.com.txt'
 
