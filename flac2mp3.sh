@@ -23,12 +23,12 @@ for i in `find . -type f -name '*.mp3'`;do
     artist=`echo "${information}"|grep '^PERFORMER'|sed -e 's/^PERFORMER[^"]*"//' -e 's/"$//'`
 
     eyeD3 --to-v2.3 \
-    --set-encoding=utf16-LE \
+    --encoding=utf16 \
     --artist="${artist}" \
     --album="${album}" \
     --title="${title}" \
     --track="${track}" \
     --track-total="${track_total}" \
-    --year="${year}" \
+    --release-date="${year}" \
     "${i}"
 done

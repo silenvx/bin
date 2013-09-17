@@ -273,9 +273,9 @@ get_nicovideo(){
 # 再生する時はこんな感じになります
     echo "${1#*//}"|grep -E '^www\..+' >/dev/null 2>&1
     if [ "${?}" == '0' ];then
-        mdl_support "${1}" '^watch/.+$'
-        nicovideo_login "${1}" 'niconico' "${nicovideo_cookies}"> /dev/null
-        local nicovideo_url="`wget --quiet --load-cookies="${nicovideo_cookies}" -O - "http://flapi.nicovideo.jp/api/getflv?v=${1#*/watch/}"|\
+        mdl_support "${1%%\?*}" '^watch/.+$'
+        nicovideo_login "${1%%\?*}" 'niconico' "${nicovideo_cookies}"> /dev/null
+        local nicovideo_url="`wget --quiet --load-cookies="${nicovideo_cookies}" -O - "http://flapi.nicovideo.jp/api/getflv?v=\`echo ${1#*/watch/}|grep -o -E '[^?]*'|head -1\`"|\
         grep -E -o 'url=[^&]+'|\
         sed -e 's/^url=//'|\
         nkf --url-input`"
