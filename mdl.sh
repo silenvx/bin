@@ -50,6 +50,14 @@ get_youtube(){
 # 複数のurlが表示されるので画質は |grep 'itag=数値' で選ぶ
 # その数値を調べるには |grep -o 'itag=[^&]*'で色々と表示される
 # 複数表示される場合があるので必ず|head -1もつけること
+
+# itag value{{{
+# http://en.wikipedia.org/wiki/YouTube#Quality_and_codecs
+# 18    mp4     270p/360p
+# 35    flv     480p
+# 22    mp4     720p
+# 37    mp4     1080p
+# }}}itag value
     echo "${1}"|cut -d '/' -f 3|grep 'youtu.be' >/dev/null 2>&1
     if [ "${?}" == '0' ];then
         mdl_support "${1}" '^[0-9a-zA-Z-_]+$'
@@ -143,34 +151,30 @@ get_himado(){
     fi
 }
 # }}}himado.in
-# 2013/03/16 momovideo.net{{{
+# 2013/11/01 momovideo.net{{{
 # urlの下にセレクトメニューに書いてある文字列が表示されます
 get_momovideo(){
-    mdl_support "${1}" '^\?watchId=[0-9]+$'
-    local momovideo_source="`web_fetch "${1}"`"
-    local momovideo_default="`echo "${momovideo_source}"|\
-    grep -E -o "mediaUrl=http[^']*"|\
-    sed -e 's/^mediaUrl=//'`"
-    local momovideo_sub="`echo "${momovideo_source}"|\
-    grep -E '<select name="media_url".*</select>'|\
-    grep -E -o '<option value="[^<]*'|\
-    sed -e 's/^<option value="//g'`"
-    IFS=$'\n'
-    for momovideo_tmp in `echo "${momovideo_default}${momovideo_sub}"`;do
-        echo "${momovideo_tmp%%\"*}"
-        echo -e "${momovideo_tmp#*>}\n" >&2
-    done
+    mdl_support "${1}" '^mediaview/playback/[0-9]*(/[0-9]*)?$'
+    web_fetch "${1}"|\
+    grep -E -o "mediaSrc: *'[^']*"|\
+    sed "s/mediaSrc: *'//"|\
+    nkf --url-input
 }
 # }}}momovideo.net
-# 2013/03/16 dailymotion.com{{{
+# 2013/10/05 dailymotion.com{{{
 # 画質が複数あります
 get_dailymotion(){
-    mdl_support "${1}" '^video/[0-9a-zA-Z_-]+$'
+    mdl_support "${1}" '^video/[0-9a-zA-Z_%-]+$'
     web_fetch "${1}"|\
-    grep -E -o 'sequence":"[^"]*'|\
     nkf --url-input|\
-    grep -E -o '"(ld|sd|hq|hd720)URL":"[^"]*'|\
-    sed -e 's/^"[^"]*URL":"//g' -e 's|\\/|/|g'
+    grep -E -o '"video_url":"[^"]*'|\
+    nkf --url-input|\
+    sed -e 's/^"video_url":"//'
+
+#    grep -E -o 'sequence":"[^"]*'|\
+#    nkf --url-input|\
+#    grep -E -o '"(ld|sd|hq|hd720)URL":"[^"]*'|\
+#    sed -e 's/^"[^"]*URL":"//g' -e 's|\\/|/|g'
 }
 # }}}dailymotion.com
 # 2013/03/17 ted.com{{{
@@ -514,6 +518,49 @@ get_nosub(){
     done
 }
 # }}}nosub.tv
+# 2013/10/07 daum.net{{{
+# daum_profileの値で画質が指定できる。MAIN, BASE, LOWの順で多分が画質がいい
+# daum_locでダウンロードサーバを指定できる。多分動画のページのサブドメインに合わせておくといい
+get_daum(){
+    daum_profile='MAIN'
+    daum_loc='tvpot'
+    mdl_support "${1}" '^clip/ClipView.do\?(.*&)?clipid=[0-9]*.*$'
+    daum_vid=`web_fetch "${1}"|\
+    grep -E -o 'vid: "[^"]*'|\
+    sed 's/^vid: "//'`
+    web_fetch "http://videofarm.daum.net/controller/api/open/v1_2/MovieLocation.apixml?vid=${daum_vid}&profile=${daum_profile}&&play_loc=${daum_loc}"|\
+    grep -E -o '<url><!\[CDATA\[[^]]*'|\
+    sed 's/<url><!\[CDATA\[//'
+}
+# }}}daum.net
+# 2013/10/14 veoh.net{{{
+# 取得できるけど未完成
+get_veoh(){
+    mdl_support "${1}" '^watch/.*'
+    veoh_vid=`echo "${1%%\?*}"|sed -e 's|.*/||'`
+    web_fetch "http://www.veoh.com/api/findByPermalink?permalink=${veoh_vid}"|\
+    grep -E -o '"http[^?]*\?ct=[^"]+'|\
+    sed 's/^"//'
+}
+# }}}veoh.net
+# 2013/10/14 b9dm.com{{{
+get_b9dm(){
+    mdl_support "${1}" '^(index\.php/video/index/[0-9]*|(lz|hd)/[0-9]*\.html)'
+    web_fetch "${1}"|\
+    grep -E -o '"http://swf.b9dm.com/play.swf\?file=[^"]*'|\
+    sed 's|^"http://swf.b9dm.com/play.swf?file=||'
+}
+# }}} b9dm.com
+# 2013/11/01 56.com{{{
+get_56(){
+    _56_id=`web_fetch "${1}"|\
+    grep -E -o '"id":"[^"]*'|\
+    sed 's/"id":"//'`
+    web_fetch "http://vxml.56.com/json/${_56_id}/?src=site"|\
+    grep -E -o 'http[^"]*'|\
+    grep '.flv'
+}
+# }}} 56.com
 # }}}get_*
 # }}}関数群
 # メインルーチン{{{
@@ -576,6 +623,18 @@ case `echo "${1}"|cut -d '/' -f 3` in
         ;;
     'www.nosub.tv')
         get_nosub "${1}"
+        ;;
+    *'.daum.net')
+        get_daum "${1}"
+        ;;
+    'www.veoh.com')
+        get_veoh "${1}"
+        ;;
+    'up.b9dm.com')
+        get_b9dm "${1}"
+        ;;
+    'www.56.com')
+        get_56 "${1}"
         ;;
     *)
         echo "unknown site: ${1}" >&2
