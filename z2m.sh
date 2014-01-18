@@ -12,6 +12,7 @@ if [ -f "$1" ];then
         unzip -p "${1}" "${zipInFile}" > "${pipe}" &
         mplayer "${pipe}"
     done
+    rm "${pipe}"
 else
     echo "not found: $1"
     exit 1
