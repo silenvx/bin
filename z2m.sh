@@ -7,7 +7,7 @@ if [ -f "$1" ];then
 
     mkfifo "${pipe}"||{ echo 'error: mkfifo';exit 1; }
     IFS=$'\n'
-    for zipInFile in `zipinfo -1 "${1}"|sed -e 's/\[/\\\\[/g' -e 's/\]/\\\\]/g'` ;do
+    for zipInFile in `zipinfo -1 "${1}"|sed -e 's/\[/\\\\\[/g' -e 's/\]/\\\\\]/g'` ;do
         echo " --- staring: ${zipInFile}"
         unzip -p "${1}" "${zipInFile}" > "${pipe}" &
         mplayer "${pipe}"
