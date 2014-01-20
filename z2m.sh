@@ -4,6 +4,7 @@
 if [ -f "$1" ];then
     pipe=`mktemp -u`
     trap "rm \"${pipe}\";exit 1" 1 2 3 9 15
+    trap "rm \"${pipe}\"" 0
 
     mkfifo "${pipe}"||{ echo 'error: mkfifo';exit 1; }
     IFS=$'\n'
@@ -12,7 +13,6 @@ if [ -f "$1" ];then
         unzip -p "${1}" "${zipInFile}" > "${pipe}" &
         mplayer "${pipe}"
     done
-    rm "${pipe}"
 else
     echo "not found: $1"
     exit 1
